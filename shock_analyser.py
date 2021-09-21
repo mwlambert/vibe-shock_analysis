@@ -11,8 +11,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataprocessing import plotting_tools as plotting_tools
 from srsengine.srs_engine import SRS
+from scipy import signal
 
-plt.style.use('default')
+plt.style.use('classic')
 
 # DOWNSAMPLE = False
 # DOWNSAMPLE_FACTOR = 100
@@ -22,6 +23,10 @@ plt.style.use('default')
 file = r'C:\Users\m.lambert\Michael\Git\vibeshockanalysis\Test Data\Shock and Vibration Inside Mining Drill Head\p3x0bqam2dpb.ide'
 
 ds = idelib.importFile(file)#, updater=idelib.importer.SimpleUpdater())
+
+def remove_sensor_bias(input_accel):
+    input_accel = input_accel - input_accel.mean()
+    return input_accel
 
 print("file: {0}\n".format(ds.name))
 
@@ -50,8 +55,44 @@ df = pd.DataFrame({
     'z_data':ch8_data[3, :],
     })
 
+T = np.mean(np.diff(df['time_s']))
+fs = 1/T
+fc = 160
+Wn = fc/(fs/2)
+
+plt.figure(figsize=(18,9))
+plt.xlabel('Time (s)')
+plt.ylabel('Acceleration (g)') 
+plt.title('Shock and Vibration inside Mining Drill Head')
+plt.plot(df['time_s'], df['x_data'], label='X Main Accel')
+plt.plot(df['time_s'], df['y_data'], label='Y Main Accel')
+plt.plot(df['time_s'], df['z_data'], label='Z Main Accel')
+# plt.plot(df['time_s'], x_filt, label='X Main Accel Filtered')
+plt.legend()
+plt.show()
+
+indices = plotting_tools.select_inputs(df['time_s'])
+plt.close()
+
+pulse = df[indices[0]:indices[1]].set_index('time_s')
+
+# b, a  = signal.butter(10, Wn)
+# x_filt = signal.filtfilt(b, a, shock_pulse)
+
+# plt.figure(figsize=(18,9))
+# plt.xlabel('Time (s)')
+# plt.ylabel('Acceleration (g)') 
+# plt.title('Shock and Vibration inside Mining Drill Head')
+# plt.plot(shock_pulse/9.81, label='X Main Accel')
+
+pulse = pd.DataFrame(pulse['z_data'] - pulse['z_data'].mean())
+
+srs = SRS(pulse)
+srs.calc_smallwood_srs()
+srs.plot_results()
+
 # if DOWNSAMPLE:
-#     df = df.set_index('time_s')
+#     df = df.set_index('Time (s)')
 #     df = df.rolling(window=WINDOW).mean()[::DOWNSAMPLE_FACTOR]
     
 #     plt.figure()
@@ -59,23 +100,3 @@ df = pd.DataFrame({
 #     plt.ylabel('Acceleration (g)') 
 #     plt.title('Shock and Vibration inside Mining Drill Head')
 #     df.plot()
-
-plt.figure()
-plt.xlabel('Time (s)')
-plt.ylabel('Acceleration (g)') 
-plt.title('Shock and Vibration inside Mining Drill Head')
-plt.plot(df['time_s'], df['x_data'], label='X Main Accel')
-plt.plot(df['time_s'], df['y_data'], label='Y Main Accel')
-plt.plot(df['time_s'], df['z_data'], label='Z Main Accel')
-plt.legend()
-
-indices = plotting_tools.select_inputs(df['time_s'])
-
-shock_pulse = df[indices[0]:indices[1]]
-
-plt.close()
-
-srs = SRS(shock_pulse)
-
-
-
